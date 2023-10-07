@@ -12,8 +12,6 @@ import java.util.logging.Logger;
  * https://jenkov.com/tutorials/java-nio/selectors.html
  * https://docs.oracle.com/javase/8/docs/api/java/nio/package-summary.html
  * 
- * https://www.happycoders.eu/java/java-19-features/#New_Methods_to_Create_Preallocated_HashMaps
- * https://howtodoinjava.com/java/java-21-new-features/
  */
 
 public class Echo {
