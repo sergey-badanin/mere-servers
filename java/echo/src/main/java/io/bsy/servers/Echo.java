@@ -6,6 +6,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
+import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
 /*
@@ -24,28 +26,91 @@ public class Echo {
                 var selector = Selector.open()) {
             serverSocketChannel.bind(new InetSocketAddress(8091));
 
-            for (;;) {
-                var channel = serverSocketChannel.accept();
+            logger.info("Starting server");
+            Executors.newSingleThreadExecutor().submit(() -> Echo.process(selector));
+            // new Timer(true).scheduleAtFixedRate(new TimerTask() {
+            // public void run() {
+            // logger.info("Selector has keys:" + selector.keys().size());
+            // }
+            // }, 5000, 5000);
 
-                var buf = ByteBuffer.allocate(1024);
+            for (;;) {
+                logger.info("Waiting for connection");
+                var channel = serverSocketChannel.accept();
+                logger.info("New connection accepted");
+
                 channel.configureBlocking(false);
                 var key = channel.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
-                key.attach(buf);
+                var buf = ByteBuffer.allocate(1024);
+                var bufState = new BufferState(buf, false);
+                key.attach(bufState);
 
+                selector.wakeup();
+            }
+        } catch (Exception e) {
+            logger.warning(String.format("Exception: %s", e));
+        }
+    }
+
+    public static void process(Selector selector) {
+        for (;;) {
+            try {
+                // logger.info("Waiting for selector");
                 selector.select();
                 var keys = selector.selectedKeys();
 
                 for (var k : keys) {
-                    if (k.isWritable()) {
-                        var bf = (ByteBuffer)k.attachment();
-                        bf.hasRemaining();
-                    }
-                    
-                }
+                    var bs = (BufferState) k.attachment();
+                    var bf = bs.buffer();
+                    var sc = (SocketChannel) k.channel();
 
+                    if (k.isReadable() && !bs.hasData()) {
+                        var readyBytes = sc.read(bf);
+                        if (readyBytes > 0) {
+                            bs.hasData(true);
+                            bf.flip();
+                        }
+                    }
+                    if (k.isWritable() && bs.hasData()) {
+                        var readyBytes = bf.limit();
+                        var writtenBytes = sc.write(bf);
+                        if (writtenBytes == readyBytes) {
+                            bs.hasData(false);
+                            bf.clear();
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                logger.warning(e.getMessage());
+                e.printStackTrace();
             }
-        } catch (Exception e) {
-            logger.warning(String.format("Exception: %s", e));
+        }
+    }
+
+    static class BufferState {
+
+        private ByteBuffer buffer;
+        private boolean hasData;
+
+        BufferState(ByteBuffer buffer, boolean hasData) {
+            this.buffer = buffer;
+            this.hasData = hasData;
+        }
+
+        public ByteBuffer buffer() {
+            return buffer;
+        }
+
+        public void buffer(ByteBuffer buffer) {
+            this.buffer = buffer;
+        }
+
+        public boolean hasData() {
+            return hasData;
+        }
+
+        public void hasData(boolean hasData) {
+            this.hasData = hasData;
         }
     }
 }
