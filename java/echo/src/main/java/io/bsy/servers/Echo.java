@@ -11,11 +11,8 @@ import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
 /*
- * https://jenkov.com/tutorials/java-nio/selectors.html
- * https://docs.oracle.com/javase/8/docs/api/java/nio/package-summary.html
- * 
+ * TODO: Make connections to deregister from selector 
  */
-
 public class Echo {
 
     private final static Logger logger = Logger.getLogger(Echo.class.getName());
